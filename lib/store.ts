@@ -93,17 +93,35 @@ const tokenKey = (token: string) => `uno:token:${token}`;
 
 const globalStore = globalThis as unknown as { __unoStore?: Store };
 
+/**
+ * Vercel's Upstash integration lets you choose the env var prefix, so the credentials
+ * can arrive under any name. Find the REST URL by its value, then its matching token.
+ */
+export function findCredentials(env: Record<string, string | undefined>): { url: string; token: string } | null {
+  const isRestUrl = (value: string | undefined) => !!value && /^https:\/\/[^/]+\.upstash\.io\/?$/.test(value.trim());
+
+  const urlKeys = Object.keys(env).filter((key) => key.endsWith("_URL") && isRestUrl(env[key]));
+  urlKeys.sort((a, b) => Number(b.startsWith("UPSTASH")) - Number(a.startsWith("UPSTASH")));
+
+  for (const urlKey of urlKeys) {
+    const base = urlKey.slice(0, -"_URL".length);
+    const tokenKeys = [`${base}_TOKEN`, `${base.replace(/_REST$/, "")}_REST_TOKEN`, `${base}_REST_TOKEN`];
+    const tokenKey = tokenKeys.find((key) => env[key]?.trim());
+    if (tokenKey) return { url: env[urlKey]!.trim(), token: env[tokenKey]!.trim() };
+  }
+  return null;
+}
+
 export function getStore(): Store {
   if (globalStore.__unoStore) return globalStore.__unoStore;
-  const url = process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN;
-  if (url && token) {
-    globalStore.__unoStore = new UpstashStore(new Redis({ url, token, automaticDeserialization: false }));
+  const credentials = findCredentials(process.env);
+  if (credentials) {
+    globalStore.__unoStore = new UpstashStore(new Redis({ ...credentials, automaticDeserialization: false }));
   } else {
     if (process.env.NODE_ENV === "production") {
       throw new Error(
-        "No Redis credentials. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN " +
-          "(or KV_REST_API_URL and KV_REST_API_TOKEN) in the project's environment variables, then redeploy.",
+        "No Redis credentials found. Connect an Upstash Redis database in the Vercel project's " +
+          "Storage tab, or set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN manually, then redeploy.",
       );
     }
     console.warn("[uno] Upstash env vars not set, using in-memory store (dev only)");

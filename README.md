@@ -28,7 +28,7 @@ npm run build && npm start
 ## Deploy to Vercel
 
 1. Import this repo at [vercel.com/new](https://vercel.com/new).
-2. In the project's **Storage** tab, create an **Upstash Redis** database and connect it. Vercel provisions it and sets the credentials for you. Alternatively create one at [console.upstash.com](https://console.upstash.com) and add `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` manually under Settings, Environment Variables. The `KV_REST_API_URL` and `KV_REST_API_TOKEN` names are accepted too.
+2. In the project's **Storage** tab, create an **Upstash Redis** database and connect it. Vercel provisions it and sets the credentials for you, under whatever variable prefix you pick. The app finds them by looking for a `*_URL` variable holding an `upstash.io` REST URL and its matching `*_TOKEN`, so any prefix works. Alternatively create a database at [console.upstash.com](https://console.upstash.com) and set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` yourself under Settings, Environment Variables.
 3. **Redeploy.** Environment variables only take effect on a new build, so a deployment made before this step keeps failing.
 
 Every push to `main` redeploys.
