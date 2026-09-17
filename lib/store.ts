@@ -95,13 +95,16 @@ const globalStore = globalThis as unknown as { __unoStore?: Store };
 
 export function getStore(): Store {
   if (globalStore.__unoStore) return globalStore.__unoStore;
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const url = process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN;
   if (url && token) {
     globalStore.__unoStore = new UpstashStore(new Redis({ url, token, automaticDeserialization: false }));
   } else {
     if (process.env.NODE_ENV === "production") {
-      throw new Error("UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must be set in production");
+      throw new Error(
+        "No Redis credentials. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN " +
+          "(or KV_REST_API_URL and KV_REST_API_TOKEN) in the project's environment variables, then redeploy.",
+      );
     }
     console.warn("[uno] Upstash env vars not set, using in-memory store (dev only)");
     globalStore.__unoStore = new MemoryStore();

@@ -27,16 +27,11 @@ npm run build && npm start
 
 ## Deploy to Vercel
 
-1. Create a free Redis database at [console.upstash.com](https://console.upstash.com).
-2. Import this repo at [vercel.com/new](https://vercel.com/new).
-3. Add two environment variables in the Vercel project settings, copied from the Upstash dashboard:
+1. Import this repo at [vercel.com/new](https://vercel.com/new).
+2. In the project's **Storage** tab, create an **Upstash Redis** database and connect it. Vercel provisions it and sets the credentials for you. Alternatively create one at [console.upstash.com](https://console.upstash.com) and add `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` manually under Settings, Environment Variables. The `KV_REST_API_URL` and `KV_REST_API_TOKEN` names are accepted too.
+3. **Redeploy.** Environment variables only take effect on a new build, so a deployment made before this step keeps failing.
 
-```
-UPSTASH_REDIS_REST_URL
-UPSTASH_REDIS_REST_TOKEN
-```
-
-4. Deploy. Every push to `main` redeploys.
+Every push to `main` redeploys.
 
 The app refuses to start in production without those two variables, so a misconfigured deploy fails loudly instead of silently losing games.
 
