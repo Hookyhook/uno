@@ -22,6 +22,17 @@ describe("findCredentials", () => {
     expect(findCredentials({ MY_DB_URL: URL_A, MY_DB_REST_TOKEN: "tok" })).toEqual({ url: URL_A, token: "tok" });
   });
 
+  it("handles the names Vercel's Upstash integration creates", () => {
+    const found = findCredentials({
+      UPSTASH_REDIS_REST_KV_REST_API_READ_ONLY_TOKEN: "readonly-tok",
+      UPSTASH_REDIS_REST_KV_REST_API_TOKEN: "tok",
+      UPSTASH_REDIS_REST_KV_REST_API_URL: URL_A,
+      UPSTASH_REDIS_REST_KV_URL: "rediss://default:tok@apn1-ace-cat-12345.upstash.io:6379",
+      UPSTASH_REDIS_REST_REDIS_URL: "rediss://default:tok@apn1-ace-cat-12345.upstash.io:6379",
+    });
+    expect(found).toEqual({ url: URL_A, token: "tok" });
+  });
+
   it("prefers the UPSTASH-prefixed pair when several are present", () => {
     const found = findCredentials({
       STORAGE_URL: URL_B,
