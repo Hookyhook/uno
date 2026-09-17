@@ -2,14 +2,14 @@
 
 Small multiplayer Uno you can play in the browser with friends. Rooms are joined by a 5-letter code, 2–6 players, standard rules including skip/reverse/+2/wild/+4, calling UNO and catching players who forgot.
 
-Everything lives in one Node process: a Fastify server serves the built React app and runs the game over a WebSocket. Rooms are in memory only, so a restart or redeploy drops running games.
+Built as a single Next.js app so it deploys to Vercel with no servers to run. Clients poll the API about once per second instead of holding a WebSocket, because serverless functions cannot keep a connection or any memory between requests. Room state lives in Upstash Redis.
 
 ## Stack
 
-- TypeScript monorepo (npm workspaces)
-- `packages/shared`: card types, rules, zod wire protocol
-- `packages/server`: Fastify + `ws`, pure game engine with tests
-- `packages/client`: Vite + React + Zustand
+- Next.js 15 (App Router), React 19, Zustand
+- Game engine is pure TypeScript in `lib/engine.ts`, unit tested with Vitest
+- `lib/room.ts` is the pure room state machine, `lib/service.ts` handles load/apply/save
+- Upstash Redis for room state, with optimistic concurrency (compare-and-set on a version key)
 
 ## Run locally
 
@@ -18,25 +18,36 @@ npm install
 npm run dev
 ```
 
-Client on http://localhost:5173 (proxies `/ws` to the server on 8080). Open two tabs to play against yourself.
+Without Upstash env vars it falls back to an in-memory store, which is fine for local play but only works in a single process. Open two tabs to play against yourself.
 
 ```bash
 npm test
-npm run build && npm start   # production build on http://localhost:8080
+npm run build && npm start
 ```
 
-## Deploy to Fly.io
+## Deploy to Vercel
 
-```bash
-fly launch --no-deploy --copy-config   # once; pick an app name if uno-game is taken
-fly deploy
+1. Create a free Redis database at [console.upstash.com](https://console.upstash.com).
+2. Import this repo at [vercel.com/new](https://vercel.com/new).
+3. Add two environment variables in the Vercel project settings, copied from the Upstash dashboard:
+
+```
+UPSTASH_REDIS_REST_URL
+UPSTASH_REDIS_REST_TOKEN
 ```
 
-`fly.toml` keeps one machine running permanently because game state is in memory. Any other Docker host works too:
+4. Deploy. Every push to `main` redeploys.
 
-```bash
-docker build -t uno . && docker run -p 8080:8080 uno
-```
+The app refuses to start in production without those two variables, so a misconfigured deploy fails loudly instead of silently losing games.
+
+## How polling works
+
+- Clients `GET /api/rooms/[code]` every 1.5 s with their session token and get back only their own hand plus public info about everyone else.
+- Actions are `POST` to the same route and return the updated view immediately, so the acting player sees their own move without waiting for the next poll.
+- Turn timeouts are applied lazily: any request that arrives after the turn clock expired applies the timeout first. No background timers needed.
+- Presence is derived from the last poll. A player who has not polled for 10 s shows as offline; after 2 minutes they are removed from the room.
+
+Rough free-tier usage: four players in a one-hour game make about 10k function invocations and 10k Redis commands, against monthly caps of 1M and 500k.
 
 ## Rules implemented
 
@@ -46,4 +57,3 @@ docker build -t uno . && docker run -p 8080:8080 uno
 - Reverse with two players acts as skip
 - With one card left you must press UNO before the next player acts; anyone can catch you for +2
 - 45 s turn timer, after which the server draws and passes for you
-- Disconnected players get 2 minutes to reconnect (token in localStorage), then are removed
